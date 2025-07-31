@@ -1,0 +1,1 @@
+Quantum inspired algorism running on GPU, merge all the dynamics evolution and iteration into one kernel, synchronization between thread blocks. This is fastest in the world.
