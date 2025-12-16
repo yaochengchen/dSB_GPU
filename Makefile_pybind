@@ -1,0 +1,92 @@
+# ========================
+# Compiler
+# ========================
+CXX := g++
+
+# ========================
+# Python (use current conda env python)
+# ========================
+PYTHON ?= python
+
+# ========================
+# Flags
+# ========================
+CXXFLAGS := -O2 -std=c++17 -Wall -Wextra -pedantic \
+            -DUSE_PY_CDSB=1
+
+# 如果你的 C++ 代码里用到了这些宏（可选）
+# CXXFLAGS += -DPY_CDSB_MODULE=\"dSB_original_python\" -DPY_CDSB_CLASS=\"CDSB\"
+# CXXFLAGS += -DPY_CDSB_SYSPATH=\"./\"
+
+# ========================
+# Paths
+# ========================
+EIGEN_INC ?= /usr/include/eigen3
+
+# Python include/lib info from the *active* python (conda env)
+PYTHON_INC := $(shell $(PYTHON) -c "import sysconfig; print(sysconfig.get_paths()['include'])")
+PYTHON_LIB := $(shell $(PYTHON) -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))")
+PYTHON_VER := $(shell $(PYTHON) -c "import sysconfig; print(sysconfig.get_config_var('LDVERSION') or sysconfig.get_config_var('VERSION'))")
+
+# pybind11 include flags (already contains -I...)
+PYBIND11_INCLUDES := $(shell $(PYTHON) -m pybind11 --includes)
+
+# ========================
+# Includes
+# ========================
+INCLUDES := \
+  -I. \
+  -Isrc \
+  -I$(EIGEN_INC) \
+  -I$(PYTHON_INC) \
+  $(PYBIND11_INCLUDES)
+
+# ========================
+# Link flags
+# ========================
+# Link libpython from conda env
+LDFLAGS := \
+  -L$(PYTHON_LIB) \
+  -lpython$(PYTHON_VER)
+
+# （可选但常用）让运行时更稳：把 conda 的 lib 目录写进 rpath
+# 如果你不想用 rpath，可以注释掉下一行，改用运行时设置 LD_LIBRARY_PATH
+RPATH := $(PYTHON_LIB)
+LDFLAGS += -Wl,-rpath,$(RPATH)
+
+# ========================
+# Sources (NO CUDA)
+# ========================
+CPP_SRCS := \
+  cdsb_fasthare_qplib_pybind.cpp \
+  fasthare_api.cpp \
+  src/fasthare.cpp \
+  src/graph.cpp
+
+OBJS := $(CPP_SRCS:.cpp=.o)
+
+BIN := app
+
+# ========================
+# Rules
+# ========================
+.PHONY: all clean print-vars
+
+all: $(BIN)
+
+$(BIN): $(OBJS)
+	$(CXX) $(CXXFLAGS) $(OBJS) -o $@ $(LDFLAGS)
+
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
+
+clean:
+	rm -f $(OBJS) $(BIN)
+
+# Debug helper: show the resolved vars
+print-vars:
+	@echo "PYTHON=$(PYTHON)"
+	@echo "PYTHON_INC=$(PYTHON_INC)"
+	@echo "PYTHON_LIB=$(PYTHON_LIB)"
+	@echo "PYTHON_VER=$(PYTHON_VER)"
+	@echo "PYBIND11_INCLUDES=$(PYBIND11_INCLUDES)"
